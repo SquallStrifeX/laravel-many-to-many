@@ -39,6 +39,21 @@
             </p>
         @endif
     </div>
+
+     {{-- TECHNOLOGIES --}}
+     <p class="project-p"> Project Technologies:
+    </p>
+
+    @forelse ($project->technologies as $tech)
+        <div class="my_badge d-inline-block mx-1 {{ $tech->badge_class }}">
+            {{ $tech->name }}</div>
+    @empty
+        <p class="project-properties">
+            No Technologies used...
+        </p>
+    @endforelse
+</div>
+
             <a href="{{ url()->previous() }}" class="btn btn-primary mt-3">Indietro</a>
         </div>
     </div>

@@ -9,6 +9,7 @@ use App\Http\Requests\StoreProjectRequest;
 use App\Http\Requests\UpdateProjectRequest;
 use Illuminate\Support\Str;
 use Illuminate\Support\Facades\Storage;
+use App\Models\Technology;
 
 class ProjectController extends Controller
 {
@@ -32,8 +33,10 @@ class ProjectController extends Controller
     {
         // RECUPERO I TIPI DA ASSOCIARE AI PROGETTI
         $types = Type::all();
+         // RECUPERO TUTTI I TIPI DI TECNOLOGIE DA ASSOCIARE AI PROGETTI
+         $technologies = Technology::all();
 
-        return view('projects.create', compact('types'));
+        return view('projects.create', compact('types','technologies'));
     }
 
     /**
@@ -72,6 +75,10 @@ class ProjectController extends Controller
         // SALVO LA NUOVA ISTANZA
         $project->save();
 
+        // CONTROLLO SE LA RICHIESTA ABBIA DEI TAGE, E SE SI, LI AGGIUNGO ALLA TABELLA PONTE
+        if ($request->has('technology')) {
+            $project->technologies()->attach($form_data['technology']);
+        }
         // FACCIO UN REDIRECT ALLA PAGINA PRINCIPALE DI PROJECTS
         return redirect()->route('admin.projects.index');
     }
@@ -99,7 +106,12 @@ class ProjectController extends Controller
         // RECUPERO I TIPI DA ASSOCIARE AI PROGETTI
         $types = Type::all();
 
-        return view('projects.edit', compact('project', 'types'));
+        // RECUPERO TUTTI I TIPI DI TECNOLOGIE DA ASSOCIARE AI PROGETTI
+        $technologies = Technology::all();
+
+
+
+        return view('projects.edit', compact('project', 'types', 'technologies'));
     }
 
     /**
@@ -111,40 +123,45 @@ class ProjectController extends Controller
      */
     public function update(UpdateProjectRequest $request, Project $project)
     {
+ // RECUPERO I DATI DELLA RICHIESTA
+ $form_data = $request->all();
 
-        // RECUPERO I DATI DELLA RICHIESTA
-        $form_data = $request->all();
+ // CONTROLLO PER VERIFICARE CHE IL 'name' SIA UNIQUE O NO
+ $exists = Project::where('name', 'LIKE', $form_data['name'])->where('id', '!=', $project->id)->get();
+ if (count($exists) > 0) {
+     $error_message = 'The project name already exist!';
+     return redirect()->route('admin.projects.edit', ['project' =>  $project->slug], compact('error_message'));
+ }
 
-        // CONTROLLO PER VERIFICARE CHE IL 'name' SIA UNIQUE O NO
-        $exists = Project::where('name', 'LIKE', $form_data['name'])->where('id', '!=', $project->id)->get();
-        if (count($exists) > 0) {
-            $error_message = 'The project name already exist!';
-            return redirect()->route('admin.projects.edit', ['project' =>  $project->slug], compact('error_message'));
-        }
+ // Controllo che request con chiave img contenga un file
+ if ($request->hasFile('img')) {
 
-        // Controllo che request con chiave img contenga un file
-        if ($request->hasFile('img')) {
+     // Controllo che l'immagine sia diversa da 'null'
+     if ($project->img != null) {
+         // Se non è diversa da null procedo con la cancellazione dell'immagine
+         Storage::disk('public')->delete($project->img);
+     }
 
-            // Controllo che l'immagine sia diversa da 'null'
-            if ($project->img != null) {
-                // Se non è diversa da null procedo con la cancellazione dell'immagine
-                Storage::disk('public')->delete($project->img);
-            }
+     // Recupero il path dell'immagine caricata dall'utente
+     $img_path = Storage::disk('public')->put('project_images', $form_data['img']);
+     // Applico il valore della variabile all immagine
+     $form_data['img'] = $img_path;
+ };
 
-            // Recupero il path dell'immagine caricata dall'utente
-            $img_path = Storage::disk('public')->put('project_images', $form_data['img']);
-            // Applico il valore della variabile all immagine
-            $form_data['img'] = $img_path;
-        };
+ // DEFINISCO LO SLUG
+ $slug = Str::slug($form_data['name'], '-');
 
-        // DEFINISCO LO SLUG
-        $slug = Str::slug($form_data['name'], '-');
+ // DO IL VALORE DELLO SLUG DEFINITO ALLA RICHIESTA
+ $form_data['slug'] = $slug;
 
-        // DO IL VALORE DELLO SLUG DEFINITO ALLA RICHIESTA
-        $form_data['slug'] = $slug;
+ // USO IL FILL PER RIEMPIRE I CAMPI
+ $project->update($form_data);
 
-        // USO IL FILL PER RIEMPIRE I CAMPI
-        $project->update($form_data);
+ // CONTROLLO SE LA RICHIESTA ABBIA DEI TAGE, E SE SI, LI AGGIUNGO/ELIMINO ALLA TABELLA PONTE
+ if ($request->has('technology')) {
+     $project->technologies()->sync($form_data['technology']);
+ }
+
 
         // FACCIO UN REDIRECT ALLA PAGINA PRINCIPALE DI PROJECTS
         return redirect()->route('admin.projects.show', ['project' =>  $project->slug]);
@@ -158,8 +175,8 @@ class ProjectController extends Controller
      */
     public function destroy(Project $project)
     {
-        // Controllo che l'immagine sia diversa da 'null'
-        if ($project->img != null) {
+         // Controllo che l'immagine sia diversa da 'null'
+         if ($project->img != null) {
             // Se non è diversa da null procedo con la cancellazione dell'immagine
             Storage::disk('public')->delete($project->img);
         }

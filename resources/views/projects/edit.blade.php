@@ -50,6 +50,20 @@
             @endforeach
         </select>
 
+          {{-- PROJECT TECNOLOGIES --}}
+          <div class="col-12 my-3 checkbox">
+            <label for="">Technologies:</label>
+
+            @foreach ($technologies as $tech)
+                <input type="checkbox" name="technology[]" id="technology-{{ $tech->id }}"
+                    value="{{ $tech->id }}"
+                    {{ $project->technologies->contains($tech->id) ? 'checked' : '' }}>
+                <div for=""
+                    class="badge_container {{ $tech->badge_class }} my_badge">
+                    {{ $tech->name }}</div>
+            @endforeach
+        </div>
+
         <button type="submit" class="btn btn-primary">Aggiorna Progetto</button>
     </form>
 </div>
